@@ -17,8 +17,8 @@ OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_PATH = OUTPUT_DIR / "simple_price.json"
 CHECK_PRICE_GRAMMAR_PATH = BASE_DIR / "check_price.lark"
 
-DEFAULT_MODEL_NAME = "gpt-5-mini"
-DEFAULT_REASONING_EFFORT = "minimal"
+DEFAULT_MODEL_NAME = "gpt-5"
+DEFAULT_REASONING_EFFORT = "high"
 MODEL_NAME = os.getenv("OPENAI_MODEL", DEFAULT_MODEL_NAME)
 REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
 
@@ -78,7 +78,9 @@ You are a simple price checker. Given a product SKU, call the tool `checkPrice` 
     )
 
     # Detailed logging of what the model sent down in the first response
-    logger.info("Initial response.output_text: %s", getattr(response, "output_text", None))
+    logger.info(
+        "Initial response.output_text: %s", getattr(response, "output_text", None)
+    )
     for idx, item in enumerate(response.output):
         item_log = {
             "idx": idx,
