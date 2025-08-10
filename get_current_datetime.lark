@@ -1,0 +1,4 @@
+start: "{" "}"
+
+%import common.WS
+%ignore WS

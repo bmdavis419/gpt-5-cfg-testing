@@ -1,0 +1,22 @@
+start: "{" title_field "," due_field "," priority_field "}"
+
+title_field: TITLE ":" JSTRING
+due_field: DUE ":" (DATE | NULL)
+priority_field: PRIORITY ":" PRIORITY_VALUE
+
+PRIORITY_VALUE: LOW | MEDIUM | HIGH
+
+TITLE: "\"title\""
+DUE: "\"due\""
+PRIORITY: "\"priority\""
+
+LOW: "\"low\""
+MEDIUM: "\"medium\""
+HIGH: "\"high\""
+
+NULL: "null"
+DATE: /"(?:19|20)\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"/
+
+%import common.ESCAPED_STRING -> JSTRING
+%import common.WS
+%ignore WS
