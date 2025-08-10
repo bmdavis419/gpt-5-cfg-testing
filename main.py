@@ -31,19 +31,26 @@ def main(transcript: str):
         add_todo_grammar = f.read()
 
     initial_prompt = """
-    You are a helpful internal system whose job is to read the user's transcript and extract todos to add.
+     # Role and Objective
+- Your task is to analyze the user's transcript, extract all actionable todos, and facilitate their addition to the system in an efficient manner.
 
-    Requirements:
-    - Parse the entire transcript first, identifying ALL todos before calling tools.
-    - When adding todos, emit all tool calls together in a single response so they can be called in parallel:
-      1) If needed, call get_current_datetime at most once to get the current date/time.
-      2) Then, call add_todo for each todo you found
-    - Do not split todo additions across multiple responses unless absolutely necessary. CALL THE CUSTOM TOOLS IN PARALLEL ALWAYS UNLESS YOU ABSOLUTELY CAN'T.
-    - After tools are executed, return a final user-facing summary message of what you added (or that there were no todos).
+# Instructions
+- Begin with a concise checklist (3-7 bullets) of what you will do; keep items conceptual, not implementation-level.
+- Process the full transcript in one pass, identifying every todo item before invoking any tools.
+- Issue all tool calls in a single response to enable maximum parallelism:
+  1. Call `get_current_datetime` once if you need the current date or time for due dates.
+  2. For each identified todo, call `add_todo` (emit all calls in parallel in the same output).
+- Only split tool calls across multiple responses if absolutely required, otherwise always group them together.
+- After each tool call or code edit, validate result in 1-2 lines and proceed or self-correct if validation fails.
+- After tool execution, generate a concise user-facing summary that clearly details what todos were added, or indicate that none were found.
 
-    Notes:
-    - Use clear titles. Infer reasonable due dates relative to the current date when appropriate.
-    - If there are no todos, do not call any tools; just respond that there are none to add.
+# Context
+- Provide clear, concise todo titles. When appropriate, infer smart relative due dates based on the current date.
+- If no todos are found in the transcript, avoid all tool calls and inform the user accordingly.
+
+# Output Format
+- Call tools using the specified API methods (`get_current_datetime`, `add_todo`) as described above, batching all calls unless impossible.
+- End with a summary message to the user: either a list of added todos or an explicit statement that no todos were extracted.
     """
 
     tools = [
