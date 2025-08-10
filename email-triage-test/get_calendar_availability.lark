@@ -1,0 +1,13 @@
+start: "{" range_field "}"
+
+range_field: RANGE ":" "{" start_field "," end_field "}"
+start_field: START ":" JSTRING
+end_field: END ":" JSTRING
+
+RANGE: "\"range\""
+START: "\"startIso\""
+END: "\"endIso\""
+
+%import common.ESCAPED_STRING -> JSTRING
+%import common.WS
+%ignore WS

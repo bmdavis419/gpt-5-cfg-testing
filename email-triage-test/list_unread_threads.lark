@@ -1,0 +1,11 @@
+// Allows either an empty object {} or {"limit": <number>}
+start: EMPTY | WITH_LIMIT
+
+EMPTY: "{" "}"
+WITH_LIMIT: "{" LIMIT ":" NUMBER "}"
+
+LIMIT: "\"limit\""
+
+%import common.SIGNED_NUMBER -> NUMBER
+%import common.WS
+%ignore WS
