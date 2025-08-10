@@ -21,10 +21,14 @@ def main(transcript: str):
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
-    if os.path.exists("todos.json"):
-        os.remove("todos.json")
+    if os.path.exists("output/todos.json"):
+        os.remove("output/todos.json")
 
-    # Using traditional function tools; CFG grammars are no longer needed
+    with open("get_current_datetime.lark", "r") as f:
+        get_current_datetime_grammar = f.read()
+
+    with open("add_todo.lark", "r") as f:
+        add_todo_grammar = f.read()
 
     initial_prompt = """
      # Role and Objective
@@ -51,36 +55,23 @@ def main(transcript: str):
 
     tools = [
         {
-            "type": "function",
+            "type": "custom",
             "name": "get_current_datetime",
             "description": "Gets the current date and time, in the format of YYYY-MM-DD HH:MM:SS",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": [],
+            "format": {
+                "type": "grammar",
+                "syntax": "lark",
+                "definition": get_current_datetime_grammar,
             },
         },
         {
-            "type": "function",
+            "type": "custom",
             "name": "add_todo",
             "description": "Adds a todo to the user's list",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "Title of the todo",
-                    },
-                    "due": {
-                        "type": ["string", "null"],
-                        "description": "Due date in YYYY-MM-DD or null",
-                    },
-                    "priority": {
-                        "type": "string",
-                        "enum": ["low", "medium", "high"],
-                    },
-                },
-                "required": ["title", "due", "priority"],
+            "format": {
+                "type": "grammar",
+                "syntax": "lark",
+                "definition": add_todo_grammar,
             },
         },
     ]
@@ -97,20 +88,15 @@ def main(transcript: str):
         elif name == "add_todo":
             logger.info(f"Tool executing: add_todo with args={args}")
             try:
-                with open("todos.json", "r") as f:
+                with open("output/todos.json", "r") as f:
                     todos = json.load(f)
             except FileNotFoundError:
                 todos = []
 
             todos.append(args)
 
-            with open("todos.json", "w") as f:
+            with open("output/todos.json", "w") as f:
                 json.dump(todos, f)
-
-            return {
-                "status": "success",
-                "message": f"Todo added: {args['title']}",
-            }
         else:
             raise ValueError(f"Unknown tool: {name}")
 
@@ -135,11 +121,11 @@ def main(transcript: str):
         current_length = len(input_list)
 
         for tool_call in response.output:
-            if tool_call.type != "function_call":
+            if tool_call.type != "custom_tool_call":
                 continue
 
             name = tool_call.name
-            args = json.loads(tool_call.arguments)
+            args = json.loads(tool_call.input)
 
             logger.info(
                 f"Model requested tool call (round {round_num}): name={name} args={args}"
