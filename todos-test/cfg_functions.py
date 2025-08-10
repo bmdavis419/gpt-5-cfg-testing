@@ -6,10 +6,21 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import logging
 
-env_path = Path(".") / ".env"
+env_path = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(dotenv_path=env_path)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "output"
+TODOS_JSON_PATH = OUTPUT_DIR / "todos.json"
+GET_CURRENT_DATETIME_GRAMMAR_PATH = BASE_DIR / "get_current_datetime.lark"
+ADD_TODO_GRAMMAR_PATH = BASE_DIR / "add_todo.lark"
+
+DEFAULT_MODEL_NAME = "gpt-5-mini"
+DEFAULT_REASONING_EFFORT = "minimal"
+MODEL_NAME = os.getenv("OPENAI_MODEL", DEFAULT_MODEL_NAME)
+REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
 
 
 def main(transcript: str):
@@ -21,13 +32,14 @@ def main(transcript: str):
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
-    if os.path.exists("output/todos.json"):
-        os.remove("output/todos.json")
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if TODOS_JSON_PATH.exists():
+        os.remove(TODOS_JSON_PATH)
 
-    with open("get_current_datetime.lark", "r") as f:
+    with open(GET_CURRENT_DATETIME_GRAMMAR_PATH, "r") as f:
         get_current_datetime_grammar = f.read()
 
-    with open("add_todo.lark", "r") as f:
+    with open(ADD_TODO_GRAMMAR_PATH, "r") as f:
         add_todo_grammar = f.read()
 
     initial_prompt = """
@@ -88,15 +100,20 @@ def main(transcript: str):
         elif name == "add_todo":
             logger.info(f"Tool executing: add_todo with args={args}")
             try:
-                with open("output/todos.json", "r") as f:
+                with open(TODOS_JSON_PATH, "r") as f:
                     todos = json.load(f)
             except FileNotFoundError:
                 todos = []
 
             todos.append(args)
 
-            with open("output/todos.json", "w") as f:
+            with open(TODOS_JSON_PATH, "w") as f:
                 json.dump(todos, f)
+
+            return {
+                "status": "success",
+                "message": f"Todo added: {args['title']}",
+            }
         else:
             raise ValueError(f"Unknown tool: {name}")
 
@@ -107,10 +124,10 @@ def main(transcript: str):
 
     logger.info("Inference start: initial request")
     response = client.responses.create(
-        model="gpt-5-mini",
+        model=MODEL_NAME,
         input=input_list,
         tools=tools,
-        reasoning={"effort": "minimal"},
+        reasoning={"effort": REASONING_EFFORT},
     )
     logger.info("Inference complete: initial response received")
 
@@ -148,10 +165,10 @@ def main(transcript: str):
         round_num += 1
         logger.info(f"Inference start: round {round_num}")
         response = client.responses.create(
-            model="gpt-5-mini",
+            model=MODEL_NAME,
             input=input_list,
             tools=tools,
-            reasoning={"effort": "minimal"},
+            reasoning={"effort": REASONING_EFFORT},
         )
 
         logger.info(f"Inference complete: round {round_num} response received")
