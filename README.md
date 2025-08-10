@@ -1,8 +1,6 @@
-# GPT-5 can't do parallel tool calls with CFG schemas????
+# GPT-5 can't do parallel tool calls with CFG schemas
 
-_this is not exhaustive and should not be taken as a comprehensive test of the GPT-5 CFG tool call functionality._
-
-I've run 50+ tests today, and I have not gotten GPT-5 to do a single parallel tool call with a CFG schema. I have zero clue why this is happening.
+I've run 50+ tests today, and I have not gotten GPT-5 to do a single parallel tool call with a CFG schema.
 
 Explanations are below; labeled screenshots are provided at the bottom.
 
@@ -10,7 +8,7 @@ Explanations are below; labeled screenshots are provided at the bottom.
 
 ### todos-test
 
-**_THESE TESTS WERE DONE WITH GPT-5-MINI_**
+GPT-5-MINI
 
 | Mode             | API calls to OpenAI | Breakdown                                                                                                  |
 | ---------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -19,7 +17,7 @@ Explanations are below; labeled screenshots are provided at the bottom.
 
 ### price-test
 
-**_THESE TESTS WERE DONE WITH GPT-5 HIGH REASONING EFFORT_**
+GPT-5 HIGH REASONING EFFORT
 
 | Mode             | API calls to OpenAI | Breakdown                                                                                                                                                     |
 | ---------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,14 +26,14 @@ Explanations are below; labeled screenshots are provided at the bottom.
 
 ### email-triage-test
 
-**_THESE TESTS WERE DONE WITH GPT-5 MINIMAL REASONING EFFORT_**
+GPT-5 MINIMAL REASONING EFFORT
 
 | Mode             | API calls to OpenAI | Breakdown                                                                                                         |
 | ---------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | normal functions | 2                   | 1 with 2 tool calls (list unread threads and get calendar availability)<br>1 for final summary                    |
 | cfg functions    | 3                   | 1 with 1 tool call (list unread threads)<br>1 with 1 tool call (get calendar availability)<br>1 for final summary |
 
-## GETTING STARTED
+## Steps to reproduce
 
 This project uses uv for package management and running.
 
