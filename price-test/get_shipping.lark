@@ -1,0 +1,18 @@
+start: "{" store_field "," sku_field "," zip_field "}"
+
+store_field: STORE ":" STORE_VALUE
+sku_field: SKU ":" JSTRING
+zip_field: ZIP ":" JSTRING
+
+STORE_VALUE: STOREA | STOREB
+
+STORE: "\"store\""
+SKU: "\"sku\""
+ZIP: "\"zip\""
+
+STOREA: "\"storeA\""
+STOREB: "\"storeB\""
+
+%import common.ESCAPED_STRING -> JSTRING
+%import common.WS
+%ignore WS

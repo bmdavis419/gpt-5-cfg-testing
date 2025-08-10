@@ -1,0 +1,201 @@
+import os
+import json
+from pathlib import Path
+from openai import OpenAI
+from dotenv import load_dotenv
+import logging
+
+# Load secrets from project-level .env
+env_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(dotenv_path=env_path)
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+BASE_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_PATH = OUTPUT_DIR / "price_compare_cfg.json"
+GET_PRICE_GRAMMAR_PATH = BASE_DIR / "get_price.lark"
+GET_SHIPPING_GRAMMAR_PATH = BASE_DIR / "get_shipping.lark"
+
+DEFAULT_MODEL_NAME = "gpt-5-mini"
+DEFAULT_REASONING_EFFORT = "minimal"
+MODEL_NAME = os.getenv("OPENAI_MODEL", DEFAULT_MODEL_NAME)
+REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
+
+
+def main(user_prompt: str):
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    logger = logging.getLogger(__name__)
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if OUTPUT_PATH.exists():
+        OUTPUT_PATH.unlink()
+
+    with open(GET_PRICE_GRAMMAR_PATH, "r") as f:
+        get_price_grammar = f.read()
+    with open(GET_SHIPPING_GRAMMAR_PATH, "r") as f:
+        get_shipping_grammar = f.read()
+
+    system_prompt = """
+You are PriceCompare, a shopping assistant. Given a SKU and a ZIP code, fetch both base price and shipping info from all configured stores, then return the cheapest delivered in-stock option. Always check every store. Compute delivered price as item price + shipping. If an item is out of stock at a store, exclude it. Break ties by earlier ETA; if still tied, prefer the cheaper shipping method. Include a short rationale showing each store's totals.
+
+Parallelization guidance:
+- For a single SKU and ZIP, call getPrice for all stores in parallel, and getShipping for all stores in parallel. If the runtime requires two phases, fetch all prices first, then all shipping, fanning out across stores. Do not wait for one store before requesting another.
+
+Output requirements:
+- Summarize each store: price, shipping, ETA, total, stock status.
+- Recommendation: name of the best store with total and ETA.
+- Brief rationale describing tie-break rules if applicable.
+"""
+
+    tools = [
+        {
+            "type": "custom",
+            "name": "getPrice",
+            "description": "Get base price and stock for a given store and SKU.",
+            "format": {
+                "type": "grammar",
+                "syntax": "lark",
+                "definition": get_price_grammar,
+            },
+        },
+        {
+            "type": "custom",
+            "name": "getShipping",
+            "description": "Get shipping cost and ETA for a given store, SKU, and ZIP.",
+            "format": {
+                "type": "grammar",
+                "syntax": "lark",
+                "definition": get_shipping_grammar,
+            },
+        },
+    ]
+
+    # Mock data for deterministic behavior
+    price_catalog = {
+        "storeA": {
+            "N3-KEYBRD": {"priceCents": 4999, "inStock": True},
+            "OOS-ITEM": {"priceCents": 12999, "inStock": False},
+        },
+        "storeB": {
+            "N3-KEYBRD": {"priceCents": 4799, "inStock": True},
+            "OOS-ITEM": {"priceCents": 9999, "inStock": False},
+        },
+    }
+
+    shipping_table = {
+        "storeA": {"method": "standard", "shippingCents": 599, "etaDays": 5},
+        "storeB": {"method": "expedited", "shippingCents": 1299, "etaDays": 2},
+    }
+
+    def call_tool(name, args):
+        if name == "getPrice":
+            store = args["store"]
+            sku = args["sku"]
+            rec = price_catalog.get(store, {}).get(sku)
+            if rec is None:
+                return {
+                    "store": store,
+                    "sku": sku,
+                    "priceCents": 0,
+                    "inStock": False,
+                    "currency": "USD",
+                }
+            return {
+                "store": store,
+                "sku": sku,
+                "priceCents": rec["priceCents"],
+                "inStock": rec["inStock"],
+                "currency": "USD",
+            }
+        elif name == "getShipping":
+            store = args["store"]
+            sku = args["sku"]
+            _zip = args["zip"]
+            rec = shipping_table.get(store)
+            return {
+                "store": store,
+                "sku": sku,
+                "shippingCents": rec["shippingCents"],
+                "etaDays": rec["etaDays"],
+                "method": rec["method"],
+                "currency": "USD",
+            }
+        else:
+            raise ValueError(f"Unknown tool: {name}")
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    logger.info("Inference start: initial request")
+    response = client.responses.create(
+        model=MODEL_NAME,
+        input=messages,
+        tools=tools,
+        reasoning={"effort": REASONING_EFFORT},
+    )
+    logger.info("Inference complete: initial response received")
+
+    tool_outputs = []
+    round_num = 1
+    while True:
+        messages += response.output
+        current_len = len(messages)
+
+        for tool_call in response.output:
+            if tool_call.type != "custom_tool_call":
+                continue
+            name = tool_call.name
+            args = json.loads(tool_call.input)
+            logger.info(f"Tool requested (round {round_num}): {name} {args}")
+
+            result = call_tool(name, args)
+            tool_outputs.append({"name": name, "args": args, "result": result})
+
+            messages.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": tool_call.call_id,
+                    "output": json.dumps(result),
+                }
+            )
+
+        if len(messages) == current_len:
+            logger.info("No more tool calls; exiting tool loop")
+            break
+
+        round_num += 1
+        logger.info(f"Inference start: round {round_num}")
+        response = client.responses.create(
+            model=MODEL_NAME,
+            input=messages,
+            tools=tools,
+            reasoning={"effort": REASONING_EFFORT},
+        )
+        logger.info(f"Inference complete: round {round_num} response received")
+
+    final_text = getattr(response, "output_text", None)
+    snapshot = {
+        "prompt": user_prompt,
+        "tool_outputs": tool_outputs,
+        "final_text": final_text,
+    }
+    with open(OUTPUT_PATH, "w") as f:
+        json.dump(snapshot, f, indent=2)
+
+    if final_text:
+        logger.info(f"Final output text: {final_text}")
+    else:
+        logger.info("Final output text unavailable on response")
+
+
+if __name__ == "__main__":
+    main(
+        'Find the best delivered price for SKU "N3-KEYBRD" shipped to ZIP 94107. Compare StoreA and StoreB, and show me each store’s price, shipping, ETA, and total before recommending the best option.'
+    )
