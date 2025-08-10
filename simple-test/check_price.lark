@@ -1,0 +1,9 @@
+start: "{" sku_field "}"
+
+sku_field: SKU ":" JSTRING
+
+SKU: "\"sku\""
+
+%import common.ESCAPED_STRING -> JSTRING
+%import common.WS
+%ignore WS
