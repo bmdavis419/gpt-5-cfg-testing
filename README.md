@@ -1,19 +1,16 @@
-# GPT-5 CFG tool call testing
-
-This is a pretty simple test of the GPT-5 CFG tool call functionality.
+# GPT-5 can't do parallel tool calls with CFG schemas????
 
 _this is not exhaustive and should not be taken as a comprehensive test of the GPT-5 CFG tool call functionality._
 
+I've run 50+ tests today, and I have not gotten GPT-5 to do a single parallel tool call with a CFG schema. I have zero clue why this is happening.
+
+Explanations are below; labeled screenshots are provided at the bottom.
+
 ## FINDINGS
-
-The weirdest thing I've been seeing is that whenever I use a CFG for my tool call, the model refuses to do tool calls in parallel. It will only do one tool call at a time.
-
-I have zero clue why this is happening. Explanations are below; labeled screenshots are provided at the bottom.
 
 ### todos-test
 
 **_THESE TESTS WERE DONE WITH GPT-5-MINI_**
-I have been getting the same results with GPT-5 high reasoning effort.
 
 | Mode             | API calls to OpenAI | Breakdown                                                                                                  |
 | ---------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
