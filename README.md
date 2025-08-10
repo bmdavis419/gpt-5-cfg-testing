@@ -2,6 +2,8 @@
 
 I've run 50+ tests today, and I have not gotten GPT-5 to do a single parallel tool call with a CFG schema.
 
+This is not listed anywhere in the docs. I assume the reason why it does this is because it's constraining the model output, which means you have to have it just do one tool call at a time.
+
 Explanations are below; labeled screenshots are provided at the bottom.
 
 ## FINDINGS
