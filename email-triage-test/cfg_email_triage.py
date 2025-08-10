@@ -18,14 +18,16 @@ OUTPUT_PATH = OUTPUT_DIR / "email_triage_cfg.json"
 LIST_THREADS_GRAMMAR_PATH = BASE_DIR / "list_unread_threads.lark"
 GET_CAL_AVAIL_GRAMMAR_PATH = BASE_DIR / "get_calendar_availability.lark"
 
-DEFAULT_MODEL_NAME = "gpt-5-mini"
+DEFAULT_MODEL_NAME = "gpt-5"
 DEFAULT_REASONING_EFFORT = "minimal"
 MODEL_NAME = os.getenv("OPENAI_MODEL", DEFAULT_MODEL_NAME)
 REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", DEFAULT_REASONING_EFFORT)
 
 
 def main(user_prompt: str):
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
     logger = logging.getLogger(__name__)
 
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -119,17 +121,23 @@ Output requirements:
             cur = start
             res = []
             while cur < end:
-                res.append({
-                    "startIso": cur.isoformat(timespec="seconds"),
-                    "endIso": (cur + timedelta(minutes=30)).isoformat(timespec="seconds"),
-                    "busy": False,
-                })
+                res.append(
+                    {
+                        "startIso": cur.isoformat(timespec="seconds"),
+                        "endIso": (cur + timedelta(minutes=30)).isoformat(
+                            timespec="seconds"
+                        ),
+                        "busy": False,
+                    }
+                )
                 cur += timedelta(minutes=30)
             return res
 
         slots = []
         for d in range(0, 7):
-            day = (now + timedelta(days=d)).replace(hour=0, minute=0, second=0, microsecond=0)
+            day = (now + timedelta(days=d)).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
             slots.extend(day_slots(day))
         for i in range(0, len(slots), 4):
             slots[i]["busy"] = True
@@ -175,7 +183,15 @@ Output requirements:
             logger.info(f"Tool requested (round {round_num}): {name} {args}")
 
             result = call_tool(name, args)
-            tool_outputs.append({"name": name, "args": args, "result_keys": (list(result.keys()) if isinstance(result, dict) else result)})
+            tool_outputs.append(
+                {
+                    "name": name,
+                    "args": args,
+                    "result_keys": (
+                        list(result.keys()) if isinstance(result, dict) else result
+                    ),
+                }
+            )
 
             messages.append(
                 {
