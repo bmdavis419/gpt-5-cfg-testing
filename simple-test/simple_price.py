@@ -69,35 +69,93 @@ You are a simple price checker. Given a product SKU, call the tool `checkPrice` 
         {"role": "user", "content": user_prompt},
     ]
 
-    logger.info("Inference start: initial request (expect 1 custom tool call)")
-    response = client.responses.create(
+    logger.info(
+        "\n=== Inference start: initial request (expect 1 custom tool call) [STREAMING] ===\n"
+    )
+
+    # Use the streaming API context manager so we can retrieve the final assembled response
+    tool_input_buffers: dict[str, str] = {}
+    with client.responses.stream(
         model=MODEL_NAME,
         input=messages,
         tools=tools,
         reasoning={"effort": REASONING_EFFORT},
-    )
+    ) as stream:
+        for event in stream:
+            # Prefer a compact, human-friendly log for each event
+            payload = None
+            try:
+                payload = event.model_dump() if hasattr(event, "model_dump") else None
+            except Exception:
+                payload = None
 
-    # Detailed logging of what the model sent down in the first response
+            etype = payload.get("type") if isinstance(payload, dict) else None
+
+            if etype == "response.output_item.added":
+                item = payload.get("item", {})
+                logger.info(
+                    "\n[output_item.added] type=%s name=%s id=%s status=%s\n",
+                    item.get("type"),
+                    item.get("name"),
+                    item.get("id"),
+                    item.get("status"),
+                )
+            elif etype == "response.output_item.done":
+                item = payload.get("item", {})
+                logger.info(
+                    "[output_item.done]   type=%s name=%s id=%s status=%s\n",
+                    item.get("type"),
+                    item.get("name"),
+                    item.get("id"),
+                    item.get("status"),
+                )
+            elif etype == "response.custom_tool_call_input.delta":
+                item_id = payload.get("item_id")
+                delta = payload.get("delta", "")
+                if item_id:
+                    tool_input_buffers[item_id] = (
+                        tool_input_buffers.get(item_id, "") + delta
+                    )
+            elif etype == "response.custom_tool_call_input.done":
+                item_id = payload.get("item_id")
+                full_input = payload.get("input") or tool_input_buffers.get(item_id, "")
+                logger.info(
+                    "[tool_call.input]   %s\n",
+                    full_input,
+                )
+            elif etype == "response.in_progress":
+                logger.info("[response] in_progress")
+            elif etype == "response.completed":
+                resp = payload.get("response", {})
+                usage = resp.get("usage") or {}
+                logger.info(
+                    "\n=== Stream completed ===\nstatus=completed, output_items=%d, tokens(input=%s, output=%s, total=%s)\n",
+                    len(resp.get("output", []) or []),
+                    (usage.get("input_tokens") if isinstance(usage, dict) else None),
+                    (usage.get("output_tokens") if isinstance(usage, dict) else None),
+                    (usage.get("total_tokens") if isinstance(usage, dict) else None),
+                )
+            else:
+                # Keep other events minimal to avoid noise
+                if etype:
+                    logger.info("[event] %s", etype)
+
+        # After the stream ends, obtain the assembled final response
+        response = stream.get_final_response()
+
+    # Concise logging of the assembled first response
     logger.info(
-        "Initial response.output_text: %s", getattr(response, "output_text", None)
+        "\nInitial response.output_text: %s\n",
+        getattr(response, "output_text", None),
     )
     for idx, item in enumerate(response.output):
-        item_log = {
-            "idx": idx,
-            "type": getattr(item, "type", None),
-            "name": getattr(item, "name", None),
-            "call_id": getattr(item, "call_id", None),
-            # For function_call (JSON tools)
-            "arguments": getattr(item, "arguments", None),
-            # For custom_tool_call (CFG tools)
-            "input": getattr(item, "input", None),
-            # For plain text chunks
-            "content": getattr(item, "content", None),
-        }
-        try:
-            logger.info("Initial response item: %s", json.dumps(item_log, indent=2))
-        except Exception:
-            logger.info("Initial response item (raw): %s", str(item_log))
+        logger.info(
+            "[#%d] type=%s name=%s call_id=%s\n",
+            idx,
+            getattr(item, "type", None),
+            getattr(item, "name", None),
+            getattr(item, "call_id", None),
+        )
 
     tool_call = None
     for item in response.output:
