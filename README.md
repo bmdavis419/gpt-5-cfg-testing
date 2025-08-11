@@ -10,7 +10,7 @@ Explanations are below; labeled screenshots are provided at the bottom.
 
 ### todos-test
 
-GPT-5-MINI
+GPT-5-MINI MINIMAL REASONING EFFORT
 
 | Mode             | API calls to OpenAI | Breakdown                                                                                                  |
 | ---------------- | ------------------- | ---------------------------------------------------------------------------------------------------------- |
